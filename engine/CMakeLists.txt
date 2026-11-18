@@ -1,0 +1,33 @@
+cmake_minimum_required(VERSION 3.22)
+project(bt_engine LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
+option(BT_BUILD_TESTS "Build engine unit tests" ON)
+option(BT_BUILD_TOOLS "Build the host command-line tool" ON)
+
+file(GLOB BT_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
+add_library(bt_engine STATIC ${BT_SOURCES})
+target_include_directories(bt_engine PUBLIC include)
+target_compile_definitions(bt_engine PUBLIC _USE_MATH_DEFINES)
+if(NOT MSVC)
+  target_compile_options(bt_engine PRIVATE -Wall -Wextra)
+endif()
+set_target_properties(bt_engine PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if(BT_BUILD_TESTS AND NOT ANDROID)
+  enable_testing()
+  file(GLOB BT_TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp)
+  add_executable(bt_tests ${BT_TEST_SOURCES})
+  target_link_libraries(bt_tests PRIVATE bt_engine)
+  add_test(NAME bt_tests COMMAND bt_tests)
+endif()
+
+if(BT_BUILD_TOOLS AND NOT ANDROID AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tools/CMakeLists.txt)
+  add_subdirectory(tools)
+endif()
