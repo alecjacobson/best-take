@@ -13,6 +13,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -53,18 +55,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val id = repository.createProject(uris)
-                _state.update { it.copy(importing = false, openProject = id) }
+                _state.update { it.copy(importing = false) }
+                open(id)
             } catch (e: Exception) {
                 _state.update { it.copy(importing = false, message = e.message ?: e.toString()) }
             }
         }
     }
 
-    fun open(id: Long?) = _state.update { it.copy(openProject = id) }
+    /**
+     * Holds the editor of the open project. It survives configuration
+     * changes with this view model and is cleared when the project closes,
+     * which releases the native session and preview bitmaps.
+     */
+    var editorOwner: EditorOwner? = null
+        private set
+
+    fun open(id: Long?) {
+        if (id == _state.value.openProject) return
+        editorOwner?.viewModelStore?.clear()
+        editorOwner = if (id != null) EditorOwner() else null
+        _state.update { it.copy(openProject = id) }
+    }
+
+    override fun onCleared() {
+        editorOwner?.viewModelStore?.clear()
+    }
 
     fun delete(id: Long) = viewModelScope.launch { repository.deleteProject(id) }
 
     fun dismissMessage() = _state.update { it.copy(message = null) }
+}
+
+class EditorOwner : ViewModelStoreOwner {
+    override val viewModelStore = ViewModelStore()
 }
 
 class MainActivity : ComponentActivity() {
@@ -88,7 +112,8 @@ class MainActivity : ComponentActivity() {
                         )
                     } else {
                         val editor: EditorViewModel = viewModel(
-                            key = "editor-$open", factory = EditorViewModel.Factory(application, open),
+                            viewModelStoreOwner = checkNotNull(model.editorOwner),
+                            factory = EditorViewModel.Factory(application, open),
                         )
                         EditorScreen(editor, onBack = { model.open(null) })
                     }
