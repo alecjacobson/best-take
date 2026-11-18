@@ -150,3 +150,37 @@ TEST(session_validates_input) {
     Session bad(g.frames, [](int, const Rect&, double) { return Image(3, 3, 3); });
     CHECK_THROWS(bad.propose());
 }
+
+TEST(session_rejects_blurry_donors) {
+    Group g = make_group({{true, false}, {false, true}});
+    // Frame 1 is out of focus: its open eyes are not a usable replacement.
+    g.images[1] = gaussian_blur(g.images[1], 5.0);
+    Session s(g.frames, loader_for(g));
+    std::vector<Candidate> c = s.candidates(0, 0);
+    CHECK(c.size() == 2 && !c[1].feasible);
+    CHECK(c[1].rejection == "too blurry");
+    SelectionResult sel = s.propose({}, 0);
+    CHECK(sel.source[0] == 0);
+    CHECK_THROWS(s.build_recipe(0, {1, 0}));
+}
+
+TEST(session_patches_compose_to_the_full_render) {
+    Group g = make_group({{true, false}, {false, true}, {true, true}});
+    Session s(g.frames, loader_for(g));
+    // Edit both people so there are two independent patches.
+    Recipe recipe = s.build_recipe(2, {0 + 1, 0});
+    CHECK(recipe.replacements.size() == 2);
+    for (double scale : {1.0, 0.5}) {
+        std::vector<QualityReport> reports;
+        Image full = s.render(recipe, scale, &reports);
+        Image composed = scale == 1.0 ? g.images[2] : resize_area(g.images[2], 400, 200);
+        for (size_t i = 0; i < recipe.replacements.size(); ++i) {
+            PatchResult patch = s.render_replacement_patch(recipe, i, scale);
+            QualityReport q = s.validate_replacement_patch(recipe, i, patch, scale);
+            CHECK(q.ok == reports[i].ok && q.excess_gradient == reports[i].excess_gradient);
+            paste(composed, patch.pixels, patch.rect.x0, patch.rect.y0);
+        }
+        CHECK(composed.data == full.data);
+    }
+    CHECK_THROWS(s.render_replacement_patch(recipe, 2, 1.0));
+}

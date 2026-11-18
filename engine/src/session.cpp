@@ -95,6 +95,8 @@ struct Session::Impl {
             b.compat.rejection = "not sure this is the same person";
         } else if (interocular_distance(frames[donor].faces[fd].landmarks) < options.min_donor_interocular_px) {
             b.compat.rejection = "too small in the source photo";
+        } else if (measure(donor, fd).sharpness < options.min_relative_sharpness * measure(base, fb).sharpness) {
+            b.compat.rejection = "too blurry";
         } else {
             const Crop& cb = crop(base, fb);
             const Crop& cd = crop(donor, fd);
@@ -294,6 +296,16 @@ PatchResult Session::render_replacement_patch(const Recipe& recipe, size_t index
     ImageView bv = s.load(base, replacement_rect(rep, probe), scale, &bi);
     ImageView dv = s.load(donor, donor_required_rect(rep, scale, s.bounds(donor, scale)), scale, &di);
     return render_replacement(rep, bv, dv);
+}
+
+QualityReport Session::validate_replacement_patch(const Recipe& recipe, size_t index, const PatchResult& patch,
+                                                  double scale) {
+    Impl& s = *impl_;
+    if (index >= recipe.replacements.size()) throw std::invalid_argument("Session: replacement index out of range");
+    int base = s.frame_index(recipe.base_id);
+    Image pixels;
+    ImageView view = s.load(base, patch.rect, scale, &pixels);
+    return validate_patch(recipe.replacements[index], view, patch);
 }
 
 Image Session::render(const Recipe& recipe, double scale, std::vector<QualityReport>* reports) {

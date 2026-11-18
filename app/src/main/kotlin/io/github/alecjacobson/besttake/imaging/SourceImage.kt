@@ -100,6 +100,10 @@ class SourceImage(
         return pixels
     }
 
+    /** Raw ARGB_8888 memory of the whole upright image at 1 / [sampleSize]. */
+    fun decodeFullPixels(sampleSize: Int): IntArray =
+        decodeRegionPixels(PixelRect(0, 0, scaledWidth(sampleSize), scaledHeight(sampleSize)), sampleSize)
+
     /** The whole upright image at 1 / [sampleSize]. */
     fun decodeFull(sampleSize: Int): Bitmap =
         decodeRegion(PixelRect(0, 0, scaledWidth(sampleSize), scaledHeight(sampleSize)), sampleSize)
