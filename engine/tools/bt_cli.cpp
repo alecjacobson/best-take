@@ -11,7 +11,7 @@
 #include <stdexcept>
 
 #include "bt/json.h"
-#include "bt/session.h"
+#include "bt/session_io.h"
 
 using namespace bt;
 
@@ -75,32 +75,13 @@ int main(int argc, char** argv) {
     try {
         json::Value job = json::parse(read_text(argv[1]));
         std::vector<Ppm> images;
-        std::vector<FrameSource> frames;
-        for (const json::Value& jf : job.at("frames").as_array()) {
+        json::Value frame_list = job.at("frames");
+        for (json::Value& jf : frame_list.array) {
             images.push_back(read_ppm(jf.at("ppm").as_string()));
-            FrameSource f;
-            f.id = jf.at("id").as_string();
-            f.hash = jf.has("hash") ? jf.at("hash").as_string() : "";
-            f.width = images.back().width;
-            f.height = images.back().height;
-            f.scene_cost = number_or(jf, "scene_cost", 0);
-            for (const json::Value& jface : jf.at("faces").as_array()) {
-                FaceInput face;
-                const std::vector<json::Value>& lm = jface.at("landmarks").as_array();
-                if (lm.size() % 2) throw std::invalid_argument("landmarks must be a flat [x, y, ...] list");
-                for (size_t i = 0; i < lm.size(); i += 2)
-                    face.landmarks.points.push_back({lm[i].as_number(), lm[i + 1].as_number()});
-                face.state.eyes_open = number_or(jface, "eyes_open", 1);
-                face.state.smile = number_or(jface, "smile", 0);
-                face.state.gaze_forward = number_or(jface, "gaze_forward", 1);
-                face.state.yaw_degrees = number_or(jface, "yaw", 0);
-                face.state.pitch_degrees = number_or(jface, "pitch", 0);
-                face.state.confidence = number_or(jface, "confidence", 1);
-                face.state.visibility = number_or(jface, "visibility", 1);
-                f.faces.push_back(face);
-            }
-            frames.push_back(f);
+            jf.set("width", images.back().width);
+            jf.set("height", images.back().height);
         }
+        std::vector<FrameSource> frames = frames_from_json(frame_list);
 
         RegionLoader loader = [&](int frame, const Rect& rect, double scale) {
             const Ppm& p = images[frame];
@@ -145,23 +126,7 @@ int main(int argc, char** argv) {
                 json::Value jp = json::Value::make_object();
                 jp.set("person", q);
                 jp.set("source", sel.source[q]);
-                json::Value cands = json::Value::make_array();
-                for (const Candidate& c : session.candidates(q, sel.base)) {
-                    json::Value jc = json::Value::make_object();
-                    jc.set("frame", c.frame);
-                    jc.set("face", session.face_index(q, c.frame));
-                    jc.set("feasible", c.feasible);
-                    jc.set("rejection", c.rejection);
-                    jc.set("face_cost", c.face_cost);
-                    jc.set("merge_cost", c.merge_cost);
-                    jc.set("support_residual", c.compatibility.support_residual);
-                    jc.set("enlargement", c.compatibility.enlargement);
-                    jc.set("silhouette_overlap", c.compatibility.silhouette_overlap);
-                    jc.set("min_band_width", c.compatibility.min_band_width);
-                    jc.set("seam_cost", c.compatibility.seam_cost);
-                    cands.array.push_back(jc);
-                }
-                jp.set("candidates", cands);
+                jp.set("candidates", candidates_to_json(session, q, session.candidates(q, sel.base)));
                 persons.array.push_back(jp);
             }
             report.set("persons", persons);
@@ -169,18 +134,9 @@ int main(int argc, char** argv) {
 
         std::vector<QualityReport> quality;
         Image out = session.render(recipe, 1.0, &quality);
-        json::Value jq = json::Value::make_array();
         bool all_ok = true;
-        for (size_t i = 0; i < quality.size(); ++i) {
-            json::Value q = json::Value::make_object();
-            q.set("person", recipe.replacements[i].person_id);
-            q.set("donor", recipe.replacements[i].donor_id);
-            q.set("ok", quality[i].ok);
-            q.set("failure", quality[i].failure);
-            q.set("excess_gradient", quality[i].excess_gradient);
-            jq.array.push_back(q);
-            all_ok = all_ok && quality[i].ok;
-        }
+        for (const QualityReport& q : quality) all_ok = all_ok && q.ok;
+        json::Value jq = quality_to_json(recipe, quality);
         report.set("replacements", jq);
         report.set("base_id", recipe.base_id);
         write_ppm(job.at("output_ppm").as_string(), out);
