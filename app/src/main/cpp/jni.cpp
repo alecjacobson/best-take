@@ -230,19 +230,29 @@ JNIEXPORT jstring JNICALL Java_io_github_alecjacobson_besttake_engine_NativeSess
     });
 }
 
-// Renders the recipe at 1 / sample_size. Returns the pixels; the quality
-// report (JSON) is stored in quality_out[0].
-JNIEXPORT jintArray JNICALL Java_io_github_alecjacobson_besttake_engine_NativeSession_nativeRender(
-    JNIEnv* env, jclass, jlong handle, jstring recipe_json, jint sample_size, jobjectArray quality_out) {
+// Renders replacement `index` of the recipe at 1 / sample_size. Returns the
+// patch pixels; rect_out receives [x0, y0, x1, y1] in scaled base pixels and
+// quality_out[0] the validation report (a JSON list with one entry).
+JNIEXPORT jintArray JNICALL Java_io_github_alecjacobson_besttake_engine_NativeSession_nativeRenderPatch(
+    JNIEnv* env, jclass, jlong handle, jstring recipe_json, jint index, jint sample_size, jintArray rect_out,
+    jobjectArray quality_out) {
     return guarded(env, jintArray(nullptr), [&] {
         NativeSession& s = from_handle(handle);
         EnvScope scope(s, env);
+        if (!rect_out || env->GetArrayLength(rect_out) != 4 || !quality_out || env->GetArrayLength(quality_out) != 1)
+            throw std::invalid_argument("rect_out must hold 4 ints and quality_out 1 string");
         Recipe recipe = recipe_from_json(to_string(env, recipe_json));
-        std::vector<QualityReport> reports;
-        Image out = s.session->render(recipe, scale_for(sample_size), &reports);
-        if (quality_out && env->GetArrayLength(quality_out) > 0)
-            env->SetObjectArrayElement(quality_out, 0, to_jstring(env, json::dump(quality_to_json(recipe, reports))));
-        return argb_from_image(env, out);
+        if (index < 0 || size_t(index) >= recipe.replacements.size())
+            throw std::invalid_argument("replacement index out of range");
+        const double scale = scale_for(sample_size);
+        PatchResult patch = s.session->render_replacement_patch(recipe, size_t(index), scale);
+        QualityReport report = s.session->validate_replacement_patch(recipe, size_t(index), patch, scale);
+        Recipe single = recipe;
+        single.replacements = {recipe.replacements[size_t(index)]};
+        env->SetObjectArrayElement(quality_out, 0, to_jstring(env, json::dump(quality_to_json(single, {report}))));
+        jint rect[4] = {patch.rect.x0, patch.rect.y0, patch.rect.x1, patch.rect.y1};
+        env->SetIntArrayRegion(rect_out, 0, 4, rect);
+        return argb_from_image(env, patch.pixels);
     });
 }
 

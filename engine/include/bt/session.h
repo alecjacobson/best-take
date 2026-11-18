@@ -42,6 +42,9 @@ struct SessionOptions {
     BuildOptions build;
     /// Smallest interocular distance, in pixels, for a face to serve as donor.
     double min_donor_interocular_px = 24;
+    /// A donor is rejected as too blurry when its sharpness is below this
+    /// fraction of the sharpness of the base face it would replace.
+    double min_relative_sharpness = 0.5;
 };
 
 struct Candidate {
@@ -82,8 +85,12 @@ public:
     /// is not feasible; nothing is substituted.
     Recipe build_recipe(int base, const std::vector<int>& sources);
 
-    /// Render one replacement of a recipe built for `base` at `scale`.
+    /// Render one replacement of a recipe at `scale`. Replacements of a
+    /// recipe from build_recipe have disjoint supports, so their patches can
+    /// be pasted onto the base independently.
     PatchResult render_replacement_patch(const Recipe& recipe, size_t index, double scale);
+    /// Validate a patch from render_replacement_patch against the base pixels.
+    QualityReport validate_replacement_patch(const Recipe& recipe, size_t index, const PatchResult& patch, double scale);
     /// Render the whole recipe at `scale`; `reports` receives one entry per replacement.
     Image render(const Recipe& recipe, double scale, std::vector<QualityReport>* reports = nullptr);
 

@@ -2,8 +2,10 @@ package io.github.alecjacobson.besttake.engine
 
 import androidx.annotation.Keep
 import io.github.alecjacobson.besttake.imaging.PixelRect
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 
 /** Supplies source pixels to the engine. Called on the thread using the session. */
 @Keep
@@ -45,14 +47,39 @@ class NativeSession(frames: List<FrameRecord>, loader: RegionLoader) : AutoClose
     /** Recipe (JSON) for explicit choices; [sources] holds one donor frame per person. */
     fun buildRecipe(base: Int, sources: List<Int>): String = nativeBuildRecipe(handle, base, sources.toIntArray())
 
-    /** Render [recipeJson] at 1 / [sampleSize] of the base photo. */
-    fun render(recipeJson: String, sampleSize: Int): RenderedImage {
+    /**
+     * Render [recipeJson] at 1 / [sampleSize] onto [basePixels], the base
+     * photo at that scale ([width] pixels per row), which is modified in
+     * place. Only the edited faces are rendered natively, so no second copy
+     * of the photo is needed and every other pixel stays exactly as decoded.
+     */
+    fun render(recipeJson: String, sampleSize: Int, basePixels: IntArray, width: Int): RenderedImage {
+        require(width > 0 && basePixels.size % width == 0) { "Base pixels do not form rows of $width" }
+        val height = basePixels.size / width
+        val count = replacementCount(recipeJson)
+        val reports = ArrayList<ReplacementQuality>(count)
+        val rect = IntArray(4)
         val quality = arrayOfNulls<String>(1)
-        val pixels = nativeRender(handle, recipeJson, sampleSize, quality)
-        val reports = EngineJson.decodeFromString(
-            ListSerializer(ReplacementQuality.serializer()), quality[0] ?: "[]",
-        )
-        return RenderedImage(pixels, reports)
+        for (index in 0 until count) {
+            val patch = nativeRenderPatch(handle, recipeJson, index, sampleSize, rect, quality)
+            val (x0, y0, x1, y1) = rect
+            require(x0 >= 0 && y0 >= 0 && x1 <= width && y1 <= height && patch.size == (x1 - x0) * (y1 - y0)) {
+                "Patch $index does not fit the base image"
+            }
+            for (y in y0 until y1) patch.copyInto(basePixels, y * width + x0, (y - y0) * (x1 - x0), (y - y0 + 1) * (x1 - x0))
+            reports += EngineJson.decodeFromString(ListSerializer(ReplacementQuality.serializer()), quality[0]!!)
+        }
+        return RenderedImage(basePixels, reports)
+    }
+
+    private fun replacementCount(recipeJson: String): Int {
+        val root = try {
+            EngineJson.parseToJsonElement(recipeJson) as? JsonObject
+        } catch (e: SerializationException) {
+            null
+        }
+        val replacements = root?.get("replacements") as? JsonArray
+        return requireNotNull(replacements) { "Not a recipe" }.size
     }
 
     /** Render what placing [donor] for [person] into [base] would look like. */
@@ -80,7 +107,9 @@ class NativeSession(frames: List<FrameRecord>, loader: RegionLoader) : AutoClose
         @JvmStatic external fun nativePropose(handle: Long, lockPersons: IntArray, lockFrames: IntArray, lockedBase: Int): String
         @JvmStatic external fun nativeCandidates(handle: Long, person: Int, base: Int): String
         @JvmStatic external fun nativeBuildRecipe(handle: Long, base: Int, sources: IntArray): String
-        @JvmStatic external fun nativeRender(handle: Long, recipeJson: String, sampleSize: Int, qualityOut: Array<String?>): IntArray
+        @JvmStatic external fun nativeRenderPatch(
+            handle: Long, recipeJson: String, index: Int, sampleSize: Int, rectOut: IntArray, qualityOut: Array<String?>,
+        ): IntArray
         @JvmStatic external fun nativeRenderCandidate(
             handle: Long, person: Int, donor: Int, base: Int, sampleSize: Int, rectOut: IntArray, okOut: BooleanArray,
         ): IntArray

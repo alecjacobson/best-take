@@ -44,6 +44,10 @@ class NativeSessionTest {
         }
     }
 
+    private fun basePixels(frame: Int, sample: Int): IntArray = loader.loadRegion(
+        frame, 0, 0, (frames[frame].width + sample - 1) / sample, (frames[frame].height + sample - 1) / sample, sample,
+    )
+
     private fun pixel(frame: Int, x: Int, y: Int): Int {
         val o = (y * frames[frame].width + x) * 3
         val d = rgb[frame]
@@ -65,21 +69,24 @@ class NativeSessionTest {
             assertEquals(1, selection.source.count { it != selection.base })
 
             val recipe = session.buildRecipe(selection.base, selection.source)
-            val rendered = session.render(recipe, 1)
+            val base = selection.base
+            val rendered = session.render(recipe, 1, basePixels(base, 1), 800)
             assertEquals(800 * 400, rendered.pixels.size)
             assertEquals(1, rendered.quality.size)
             assertTrue(rendered.quality.single().ok)
 
             // Pixels far from any face are the base photo, bit for bit; the edited face differs.
-            val base = selection.base
             assertEquals(pixel(base, 5, 5), rendered.pixels[5 * 800 + 5])
             assertEquals(pixel(base, 795, 395), rendered.pixels[395 * 800 + 795])
             val changed = rendered.pixels.indices.count { rendered.pixels[it] != pixel(base, it % 800, it / 800) }
             assertTrue("changed pixels: $changed", changed in 500..40000)
 
             // The same recipe renders the same pixels again, and at preview scale.
-            assertArrayEquals(rendered.pixels, session.render(recipe, 1).pixels)
-            assertEquals(400 * 200, session.render(recipe, 2).pixels.size)
+            assertArrayEquals(rendered.pixels, session.render(recipe, 1, basePixels(base, 1), 800).pixels)
+            val preview = session.render(recipe, 2, basePixels(base, 2), 400)
+            assertEquals(400 * 200, preview.pixels.size)
+            assertTrue(preview.quality.single().ok)
+            assertFalse(preview.pixels.contentEquals(basePixels(base, 2)))
             assertTrue(loads > 0)
         }
     }
@@ -118,9 +125,16 @@ class NativeSessionTest {
             assertThrows(IllegalArgumentException::class.java) { session.buildRecipe(0, listOf(1)) }
             assertThrows(IllegalArgumentException::class.java) { session.buildRecipe(9, listOf(0, 0)) }
             assertThrows(IllegalArgumentException::class.java) { session.candidates(5, 0) }
-            assertThrows(IllegalArgumentException::class.java) { session.render("{}", 1) }
-            val recipe = session.buildRecipe(0, listOf(0, 0))
-            assertThrows(IllegalArgumentException::class.java) { session.render(recipe, 3) }
+            assertThrows(IllegalArgumentException::class.java) { session.render("{}", 1, basePixels(0, 1), 800) }
+            assertThrows(IllegalArgumentException::class.java) { session.render("not json", 1, basePixels(0, 1), 800) }
+            val person = session.association.personOf[0][0]
+            val recipe = session.buildRecipe(0, List(2) { if (it == person) 1 else 0 })
+            assertThrows(IllegalArgumentException::class.java) { session.render(recipe, 3, basePixels(0, 1), 800) }
+            assertThrows(IllegalArgumentException::class.java) { session.render(recipe, 1, basePixels(0, 1), 799) }
+            // An unedited recipe leaves the base untouched.
+            val untouched = session.render(session.buildRecipe(0, listOf(0, 0)), 1, basePixels(0, 1), 800)
+            assertArrayEquals(basePixels(0, 1), untouched.pixels)
+            assertTrue(untouched.quality.isEmpty())
             assertThrows(IllegalArgumentException::class.java) { session.renderCandidate(0, 0, 0, 1) }
         }
         assertThrows(IllegalArgumentException::class.java) { NativeSession(emptyList(), loader) }

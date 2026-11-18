@@ -208,7 +208,8 @@ class EditorViewModel(application: Application, private val projectId: Long) : A
         val w = image.scaledWidth(previewSample)
         val h = image.scaledHeight(previewSample)
         val preview = withContext(engineThread) {
-            image.bitmapFromPixels(session!!.render(recipeJson, previewSample).pixels, w, h)
+            val pixels = image.decodeFullPixels(previewSample)
+            image.bitmapFromPixels(session!!.render(recipeJson, previewSample, pixels, w).pixels, w, h)
         }
         val original = if (resetOriginal || _state.value.original == null) {
             withContext(Dispatchers.IO) { image.decodeFull(previewSample) }
@@ -309,7 +310,8 @@ class EditorViewModel(application: Application, private val projectId: Long) : A
         val image = baseImage()
         val (recipe, rendered) = withContext(engineThread) {
             val recipe = session!!.buildRecipe(base, nextChosen)
-            recipe to session!!.render(recipe, previewSample)
+            val pixels = image.decodeFullPixels(previewSample)
+            recipe to session!!.render(recipe, previewSample, pixels, image.scaledWidth(previewSample))
         }
         if (rendered.quality.any { !it.ok }) {
             // Keep the valid accepted image rather than showing a defective composite.
@@ -360,7 +362,7 @@ class EditorViewModel(application: Application, private val projectId: Long) : A
         val savedRevision = revision
         val recipe = recipeJson
         withContext(engineThread) {
-            val rendered = session!!.render(recipe, 1)
+            val rendered = session!!.render(recipe, 1, image.decodeFullPixels(1), image.width)
             // Export uses exactly the accepted recipe; a full-resolution defect returns to review.
             require(rendered.quality.all { it.ok }) { string(R.string.quality_failed) }
             val bitmap = image.bitmapFromPixels(rendered.pixels, image.width, image.height)
