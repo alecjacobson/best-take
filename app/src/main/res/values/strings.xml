@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Best Take</string>
+    <string name="select_photos">Select photos</string>
+    <string name="select_photos_hint">Choose 2 to 20 photos of the same moment.</string>
+    <string name="projects">Projects</string>
+    <string name="no_projects">No projects yet.</string>
+    <string name="need_two_photos">Choose at least two photos of the same moment.</string>
+    <string name="too_many_photos">At most 20 photos can be merged at once.</string>
+    <string name="copying_photos">Copying photos…</string>
+    <string name="analyzing">Analyzing photo %1$d of %2$d…</string>
+    <string name="choosing">Choosing expressions…</string>
+    <string name="rendering">Rendering…</string>
+    <string name="saving">Saving…</string>
+    <string name="saved">Saved a copy to Pictures/BestTake.</string>
+    <string name="cancel">Cancel</string>
+    <string name="back">Back</string>
+    <string name="undo">Undo</string>
+    <string name="redo">Redo</string>
+    <string name="save_copy">Save copy</string>
+    <string name="hold_to_compare">Hold to compare with the original</string>
+    <string name="original">Original</string>
+    <string name="recommended">Recommended</string>
+    <string name="reset_person">Reset this person</string>
+    <string name="reset_all">Reset all</string>
+    <string name="no_change_recommended">This photo already looks good. Tap a face to see other expressions.</string>
+    <plurals name="expressions_changed">
+        <item quantity="one">%1$d expression changed</item>
+        <item quantity="other">%1$d expressions changed</item>
+    </plurals>
+    <string name="person_face">Face of person %1$d. Tap to choose an expression.</string>
+    <string name="candidate_from_photo">Expression from photo %1$d</string>
+    <string name="candidate_unavailable">Photo %1$d: %2$s</string>
+    <string name="no_faces">No faces were found in these photos.</string>
+    <string name="source_missing">A source photo is missing: %1$s. Add it back to keep editing.</string>
+    <string name="quality_failed">That expression could not be blended cleanly, so it was not applied.</string>
+    <string name="delete_project">Delete project</string>
+</resources>
