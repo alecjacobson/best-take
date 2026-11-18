@@ -31,8 +31,8 @@ struct RegionReport {
     std::string rejection;  ///< Empty when feasible.
 };
 
-/// Build the conservative-path regions. The core covers the eyes, brows, nose,
-/// and lips of both the aligned donor and the base, so no base feature
+/// Build the conservative-path regions. The core covers the eyes, inner brows,
+/// nose, and lips of both the aligned donor and the base, so no base feature
 /// survives beside its replacement. The outer boundary stays inside the face
 /// silhouette of both images, so the band crosses skin in both.
 RegionReport build_regions(const FaceLandmarks& base, const FaceLandmarks& donor, const Similarity& base_from_donor,

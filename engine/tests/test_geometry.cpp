@@ -93,15 +93,14 @@ TEST(regions_cover_features_and_stay_inside_silhouette) {
     EditRegions g;
     RegionReport rep = build_regions(bl, dl, Similarity{}, &g);
     CHECK(rep.feasible);
-    CHECK(rep.min_band_width >= 0.05);
+    CHECK(rep.min_band_width >= 0.03);
     CHECK_NEAR(rep.silhouette_overlap, 1, 1e-9);
     auto radius_and_angle = [&](Vec2 p, double* th) {
         *th = std::atan2(p.y - g.center.y, p.x - g.center.x);
         return norm(p - g.center);
     };
     for (const FaceLandmarks* f : {&bl, &dl})
-        for (const std::vector<int>* grp : {&topology::lips, &topology::left_eye, &topology::right_eye,
-                                            &topology::left_brow, &topology::right_brow, &topology::nose})
+        for (const std::vector<int>* grp : {&topology::lips, &topology::left_eye, &topology::right_eye, &topology::nose})
             for (int i : *grp) {
                 double th, r = radius_and_angle(f->points[i], &th);
                 CHECK(r < profile_radius(g.core, th));

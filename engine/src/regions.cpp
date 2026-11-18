@@ -33,15 +33,18 @@ RegionReport build_regions(const FaceLandmarks& base, const FaceLandmarks& donor
     const double iod = interocular_distance(base);
 
     // Features that must be owned by the donor: both faces' eyes, brows, nose, lips.
+    // Brow tails are left out: on a turned head they sit on the silhouette,
+    // and they move least with expression, so the band may cross them.
+    static const std::vector<int> inner_brows = {105, 66, 107, 55, 65, 52, 334, 296, 336, 285, 295, 282};
     std::vector<Vec2> feat;
-    for (const std::vector<int>* g : {&topology::left_eye, &topology::right_eye, &topology::left_brow,
-                                      &topology::right_brow, &topology::lips, &topology::nose}) {
+    for (const std::vector<int>* g :
+         {&topology::left_eye, &topology::right_eye, &inner_brows, &topology::lips, &topology::nose}) {
         for (int i : *g) {
             feat.push_back(base.points[i]);
             feat.push_back(T.apply(donor.points[i]));
         }
     }
-    std::vector<Vec2> must = convex_offset(convex_hull(feat), -0.04 * iod);
+    std::vector<Vec2> must = convex_offset(convex_hull(feat), -0.03 * iod);
     std::vector<Vec2> wish = convex_offset(must, -0.10 * iod);
 
     std::vector<Vec2> base_oval = convex_hull(select(base, topology::face_oval));
@@ -54,14 +57,14 @@ RegionReport build_regions(const FaceLandmarks& base, const FaceLandmarks& donor
         return rep;
     }
     rep.silhouette_overlap = polygon_area(common) / std::max(polygon_area(base_oval), polygon_area(donor_oval));
-    std::vector<Vec2> outer_poly = convex_offset(common, 0.05 * iod);
+    std::vector<Vec2> outer_poly = convex_offset(common, 0.02 * iod);
     if (outer_poly.size() < 3) {
         rep.rejection = "face is too small to edit";
         return rep;
     }
 
     regions->center = centroid(must);
-    const double min_band = 0.05 * iod;
+    const double min_band = 0.04 * iod;
     std::vector<double> r_must, r_wish, r_outer;
     try {
         r_must = radial_profile(must, regions->center, kRadialSamples);
@@ -75,15 +78,26 @@ RegionReport build_regions(const FaceLandmarks& base, const FaceLandmarks& donor
     regions->core.resize(kRadialSamples);
     rep.min_band_width = 1e30;
     for (int k = 0; k < kRadialSamples; ++k) {
-        // Prefer the generous core, but give way to keep a usable band; never
-        // retreat inside the features that must be replaced.
+        // Prefer the generous core, but give way to keep a usable band. The
+        // dilated hull may poke past the silhouette of a turned face; the
+        // landmarks themselves are checked below.
         double core = std::max(r_must[k], std::min(r_wish[k], r_outer[k] - 3 * min_band));
+        core = std::min(core, r_outer[k] - min_band);
         regions->core[k] = core;
         rep.min_band_width = std::min(rep.min_band_width, (r_outer[k] - core) / iod);
     }
-    if (rep.min_band_width * iod < min_band) {
+    if (*std::min_element(regions->core.begin(), regions->core.end()) <= 0) {
         rep.rejection = "head pose or jaw position differs too much";
         return rep;
+    }
+    // Every feature of both faces must be owned by the donor core; a feature
+    // left in the band would be blended with its counterpart.
+    for (Vec2 p : feat) {
+        Vec2 d = p - regions->center;
+        if (norm(d) > profile_radius(regions->core, std::atan2(d.y, d.x))) {
+            rep.rejection = "head pose or jaw position differs too much";
+            return rep;
+        }
     }
     rep.feasible = true;
     return rep;
