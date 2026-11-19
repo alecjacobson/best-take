@@ -8,6 +8,38 @@ The implementation specification is [docs/design.md](docs/design.md). Work is
 tracked in [GitHub issues](https://github.com/alecjacobson/best-take/issues),
 grouped by the milestones in the design's delivery plan.
 
+## Example
+
+This is what the current build produces. The inputs are four frames taken a
+moment apart from a public-domain
+[NASA crew news conference video](https://images.nasa.gov/details/jsc2024m000139_Crew-9_Crew_News_Conference).
+
+![Four input photos](docs/images/example-inputs.jpg)
+
+Left to itself, the tool keeps photo 4 unchanged: it scores photo 3's face
+slightly worse and rejects photos 1 and 2 because the head is turned too far
+from the base. To show a merge, the result below forces the face from photo 3
+onto photo 4:
+
+```sh
+python3 tools/best_take.py photo1.jpg photo2.jpg photo3.jpg photo4.jpg \
+  --base 3 --lock 0=2 --output merged.jpg
+```
+
+![Merged output](docs/images/example-output.jpg)
+
+Only the inner face is replaced; hair, ears, the head outline, and everything
+outside the face come from the base photo.
+
+![Base, donor, and merged face crops](docs/images/example-faces.jpg)
+
+The same choice made in the Android app, running on an emulator:
+
+<img src="docs/images/example-app.png" alt="Editor screen in the Android app" width="300">
+
+This example has one person in 1280x720 video frames. Group photos and
+full-resolution camera photos have not been tested yet.
+
 ## Layout
 
 | Path | Contents |
