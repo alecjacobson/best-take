@@ -10,35 +10,34 @@ grouped by the milestones in the design's delivery plan.
 
 ## Example
 
-This is what the current build produces. The inputs are four frames taken a
-moment apart from a public-domain
-[NASA crew news conference video](https://images.nasa.gov/details/jsc2024m000139_Crew-9_Crew_News_Conference).
+The inputs are the five-shot family portrait from Agarwala et al.,
+[Interactive Digital Photomontage](https://grail.cs.washington.edu/projects/photomontage/)
+(SIGGRAPH 2004). No single shot is good for everyone: in photo 2, for
+example, one man squints and another has stopped smiling.
 
-![Four input photos](docs/images/example-inputs.jpg)
+![Five input photos](docs/images/family-inputs.jpg)
 
-Left to itself, the tool keeps photo 4 unchanged: it scores photo 3's face
-slightly worse and rejects photos 1 and 2 because the head is turned too far
-from the base. To show a merge, the result below forces the face from photo 3
-onto photo 4:
+**This result is forced, not automatic.** The automatic selection does not yet
+change anything on this set (see
+[issue 56](https://github.com/alecjacobson/best-take/issues/56)), so the base
+photo and three replacements were chosen by hand. The published images are
+752x566, below the tool's minimum face size, so they were enlarged 3x first.
 
 ```sh
-python3 tools/best_take.py photo1.jpg photo2.jpg photo3.jpg photo4.jpg \
-  --base 3 --lock 0=2 --output merged.jpg
+python3 tools/best_take.py up3_*.png --base 1 --lock 5=0 --lock 9=0 --lock 10=3 \
+  --output merged.jpg
 ```
 
-![Merged output](docs/images/example-output.jpg)
+![Merged output](docs/images/family-output.jpg)
 
 Only the inner face is replaced; hair, ears, the head outline, and everything
 outside the face come from the base photo.
 
-![Base, donor, and merged face crops](docs/images/example-faces.jpg)
+![Base, donor, and merged crops for the three replaced faces](docs/images/family-faces.jpg)
 
-The same choice made in the Android app, running on an emulator:
+The Android app's editor, running on an emulator with a different, single-person set:
 
 <img src="docs/images/example-app.png" alt="Editor screen in the Android app" width="300">
-
-This example has one person in 1280x720 video frames. Group photos and
-full-resolution camera photos have not been tested yet.
 
 ## Layout
 
