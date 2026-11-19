@@ -106,7 +106,7 @@ TEST(selection_composes_when_people_peak_in_different_frames) {
     CHECK(r.base == 1);  // fewest changes
     CHECK(r.source[0] == 0 && r.source[1] == 1 && r.source[2] == 1);
     CHECK(r.edits() == 1);
-    CHECK_NEAR(r.cost, 0.1 * 3 + 0.05 + 0.12, 1e-12);
+    CHECK_NEAR(r.cost, 0.1 * 3 + 0.05 + p.edit_penalty, 1e-12);
 }
 
 TEST(selection_enforces_feasibility_and_required_people) {
@@ -221,6 +221,13 @@ TEST(scoring_separates_technical_quality_from_preference) {
     CHECK_NEAR(preference_cost(serious, neutral), 0, 1e-12);
     CHECK(preference_cost(blink, neutral) > 0.9);
     CHECK(preference_cost(blink, Preference{}) > preference_cost(serious, Preference{}));
+    // Ordinary variation among open eyes costs nothing; a squint costs most of the weight.
+    FaceMeasurements open, squint;
+    open.smile = squint.smile = 1;
+    open.eyes_open = 0.96;
+    squint.eyes_open = 0.7;
+    CHECK_NEAR(preference_cost(open, Preference{}), 0, 1e-12);
+    CHECK(preference_cost(squint, Preference{}) > 0.8);
     blink.confidence = 0;
     CHECK_NEAR(preference_cost(blink, neutral), 0, 1e-12);
     // Technical cost is unaffected by expression.

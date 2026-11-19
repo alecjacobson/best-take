@@ -34,10 +34,11 @@ double technical_cost(const FaceMeasurements& m);
 /// makes that property irrelevant, so neutral or serious looks stay valid.
 struct Preference {
     double eyes_open = 1.0;
-    double smile = 0.25;
+    double smile = 0.5;
     double gaze = 0.35;
 };
-/// Expression preference cost in [0, 1], scaled by estimate confidence.
+/// Expression preference cost in [0, 1], scaled by estimate confidence. A
+/// closed eye alone reaches the eye weight; the weights are not normalized.
 double preference_cost(const FaceMeasurements& m, const Preference& pref);
 
 struct MergeEvaluation {
@@ -64,7 +65,7 @@ struct SelectionProblem {
     std::map<int, int> locks;  ///< person -> donor frame chosen by the user.
     int locked_base = -1;      ///< Base chosen by the user, or -1.
     double merge_weight = 1.0;   ///< lambda
-    double edit_penalty = 0.12;  ///< eta
+    double edit_penalty = 0.08;  ///< eta
     int max_bases = 4;
     int max_donors = 4;
     /// Donors whose face cost is within this of an already listed donor are

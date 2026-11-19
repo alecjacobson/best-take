@@ -79,9 +79,26 @@ struct Session::Impl {
         return measurements[key] = m;
     }
 
-    double face_cost(int frame, int face) {
-        const FaceMeasurements& m = measure(frame, face);
-        return 0.5 * technical_cost(m) + 0.5 * preference_cost(m, options.preference);
+    /// Cost of one person's face as photographed. Expression is judged
+    /// against that person's own best observation in the set, so narrow eyes
+    /// in bright sun or a habitually serious face are not penalized.
+    double face_cost(int person, int frame) {
+        FaceMeasurements best;
+        best.eyes_open = best.smile = best.gaze_forward = 0;
+        for (int f = 0; f < int(frames.size()); ++f) {
+            int face = face_of[person][f];
+            if (face < 0) continue;
+            const FaceMeasurements& o = measure(f, face);
+            best.eyes_open = std::max(best.eyes_open, o.eyes_open);
+            best.smile = std::max(best.smile, o.smile);
+            best.gaze_forward = std::max(best.gaze_forward, o.gaze_forward);
+        }
+        FaceMeasurements m = measure(frame, face_of[person][frame]);
+        double technical = technical_cost(m);
+        m.eyes_open = best.eyes_open > 0 ? std::min(1.0, m.eyes_open / best.eyes_open) : 1.0;
+        m.smile = 1 - std::max(0.0, best.smile - m.smile);
+        m.gaze_forward = 1 - std::max(0.0, best.gaze_forward - m.gaze_forward);
+        return technical + preference_cost(m, options.preference);
     }
 
     const Built& build(int person, int donor, int base) {
@@ -201,7 +218,7 @@ SelectionResult Session::propose(const std::map<int, int>& locks, int locked_bas
             ++seen;
             p.present[q][f] = true;
             p.eligible[q][f] = !s.assoc.uncertain[f][face];
-            p.face_cost[q][f] = s.face_cost(f, face);
+            p.face_cost[q][f] = s.face_cost(q, f);
         }
         p.required[q] = 2 * seen > p.frame_count;
     }
@@ -237,7 +254,7 @@ std::vector<Candidate> Session::candidates(int person, int base) {
         Candidate c;
         c.frame = f;
         c.is_base = f == base;
-        c.face_cost = s.face_cost(f, face);
+        c.face_cost = s.face_cost(person, f);
         if (c.is_base) {
             c.feasible = true;
         } else {

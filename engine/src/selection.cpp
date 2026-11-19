@@ -61,11 +61,12 @@ double technical_cost(const FaceMeasurements& m) {
 }
 
 double preference_cost(const FaceMeasurements& m, const Preference& pref) {
-    double total = pref.eyes_open + pref.smile + pref.gaze;
-    if (total <= 0) return 0;
-    double c = pref.eyes_open * (1 - std::clamp(m.eyes_open, 0.0, 1.0)) + pref.smile * (1 - std::clamp(m.smile, 0.0, 1.0)) +
+    // Eye opening is judged on a ramp: small variations among open eyes cost
+    // nothing, and a visible squint or blink quickly costs the full weight.
+    double eyes = std::clamp((0.95 - std::clamp(m.eyes_open, 0.0, 1.0)) / 0.30, 0.0, 1.0);
+    double c = pref.eyes_open * eyes + pref.smile * (1 - std::clamp(m.smile, 0.0, 1.0)) +
                pref.gaze * (1 - std::clamp(m.gaze_forward, 0.0, 1.0));
-    return std::clamp(m.confidence, 0.0, 1.0) * c / total;
+    return std::clamp(std::clamp(m.confidence, 0.0, 1.0) * c, 0.0, 1.0);
 }
 
 MergeEvaluation merge_cost(const Compatibility& c) {
@@ -73,8 +74,9 @@ MergeEvaluation merge_cost(const Compatibility& c) {
     e.feasible = c.feasible;
     e.rejection = c.rejection;
     if (!c.feasible) return e;
-    e.cost = std::clamp(4.0 * c.support_residual + 0.5 * std::max(0.0, c.enlargement - 1) +
-                            0.6 * (1 - c.silhouette_overlap) + 0.3 * c.color_log_gain + 20.0 * c.seam_cost,
+    e.cost = std::clamp(1.5 * c.support_residual + 0.5 * std::max(0.0, c.enlargement - 1) +
+                            0.4 * (1 - c.silhouette_overlap) + 0.3 * c.color_log_gain + 10.0 * c.seam_cost +
+                            0.5 * c.core_mismatch,
                         0.0, 1.0);
     return e;
 }

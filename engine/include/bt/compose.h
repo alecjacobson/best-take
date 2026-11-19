@@ -55,6 +55,9 @@ struct BuildOptions {
     double max_enlargement = 1.6;
     /// Smallest accepted common silhouette overlap.
     double min_silhouette_overlap = 0.72;
+    /// Largest accepted share of expression-independent core skin whose
+    /// brightness differs strongly between the photos after color matching.
+    double max_core_mismatch = 0.2;
 };
 
 /// Measurements deciding whether a donor can fit a particular base.
@@ -67,6 +70,7 @@ struct Compatibility {
     double silhouette_overlap = 0;
     double color_log_gain = 0;  ///< Largest absolute fitted log gain.
     double seam_cost = 0;       ///< Mean base/donor disagreement along the chosen seam.
+    double core_mismatch = 0;   ///< Share of expression-independent core skin that differs strongly.
 };
 
 /// Fit alignment, regions, color, and seam for placing `donor` into `base`.

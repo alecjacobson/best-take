@@ -247,6 +247,20 @@ TEST(incompatible_donors_are_rejected_with_reasons) {
     c = build_replacement(full_view(s.base), s.base_lm, full_view(s.donor), turned, {}, &rep);
     CHECK(!c.feasible);
     CHECK(c.rejection == "turned too far");
+    // Dark glasses in the donor only: skin around the eyes no longer matches.
+    Compatibility plain = build_replacement(full_view(s.base), s.base_lm, full_view(s.donor), s.donor_lm, {}, &rep);
+    CHECK(plain.feasible && plain.core_mismatch < 0.05);
+    Image shaded = s.donor;
+    for (double v = -0.62; v <= 0.05; v += 0.002)
+        for (double u = -0.95; u <= 0.95; u += 0.002) {
+            Vec2 q = s.donor_pose.image_from_face.apply({u, v});
+            int x = int(q.x), y = int(q.y);
+            if (x < 0 || y < 0 || x >= shaded.width || y >= shaded.height) continue;
+            for (int ch = 0; ch < 3; ++ch) shaded.at(x, y, ch) = 0.02f;
+        }
+    c = build_replacement(full_view(s.base), s.base_lm, full_view(shaded), s.donor_lm, {}, &rep);
+    CHECK(!c.feasible);
+    CHECK(c.rejection == "something covers the face in one photo");
 }
 
 TEST(identical_donor_reproduces_the_base) {
