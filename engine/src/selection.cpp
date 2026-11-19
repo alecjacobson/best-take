@@ -213,8 +213,8 @@ SelectionResult select_sources(const SelectionProblem& p) {
     validate(p);
     std::vector<int> bases;
     if (p.locked_base >= 0) {
-        if (!base_is_valid(p, p.locked_base))
-            throw std::invalid_argument("select_sources: locked base is missing a required person");
+        // The user's own choice of base decides who is retained, so it is not
+        // checked against the people inferred to be required.
         bases = {p.locked_base};
     } else {
         // Promising bases: lowest scene cost plus cost of the faces as photographed.

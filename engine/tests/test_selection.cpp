@@ -157,6 +157,23 @@ TEST(selection_never_replaces_locked_choices) {
     CHECK_THROWS(select_sources(p));
 }
 
+TEST(selection_accepts_locked_base_missing_a_required_person) {
+    SelectionProblem p = make_problem(3, 2);
+    p.present[1][2] = false;  // person 1 turned away in frame 2
+    p.eligible[1][2] = false;
+    p.required = {true, true};
+    p.face_cost[0] = {0.5, 0.5, 0.1};
+    p.face_cost[1] = {0.1, 0.5, 0.0};
+    // Left to itself, the selection avoids the frame that lacks person 1.
+    SelectionResult r = select_sources(p);
+    CHECK(r.valid && r.base != 2);
+    // The user's base is honored; the absent person is left alone.
+    p.locked_base = 2;
+    r = select_sources(p);
+    CHECK(r.valid && r.base == 2);
+    CHECK(r.source[0] == 2 && r.source[1] == -1);
+}
+
 TEST(selection_optimizes_interacting_neighbors_jointly) {
     SelectionProblem p = make_problem(3, 2);
     p.face_cost[0] = {0.5, 0.1, 0.2};
