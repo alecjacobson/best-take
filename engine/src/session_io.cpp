@@ -72,6 +72,7 @@ json::Value candidates_to_json(const Session& session, int person, const std::ve
         jc.set("silhouette_overlap", c.compatibility.silhouette_overlap);
         jc.set("min_band_width", c.compatibility.min_band_width);
         jc.set("seam_cost", c.compatibility.seam_cost);
+        jc.set("core_mismatch", c.compatibility.core_mismatch);
         out.array.push_back(jc);
     }
     return out;

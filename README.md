@@ -17,10 +17,10 @@ example, one man squints and another has stopped smiling.
 
 ![Five input photos](docs/images/family-inputs.jpg)
 
-**This result is forced, not automatic.** The automatic selection does not yet
-change anything on this set (see
-[issue 56](https://github.com/alecjacobson/best-take/issues/56)), so the base
-photo and three replacements were chosen by hand. The published images are
+**This result is forced, not automatic.** Left to itself the tool currently
+keeps photo 1 and replaces one face (see
+[issue 56](https://github.com/alecjacobson/best-take/issues/56)); here the
+base photo and three replacements were chosen by hand. The published images are
 752x566, below the tool's minimum face size, so they were enlarged 3x first.
 
 ```sh

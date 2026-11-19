@@ -324,6 +324,44 @@ Compatibility build_replacement(const ImageView& base, const FaceLandmarks& base
     }
     apply_color(D, rect, ws, r);
 
+    // Covered or changed appearance: skin inside the core that expression does
+    // not move (away from the eyes, brows, and lips) should look alike in both
+    // photos once color is matched. Sunglasses, a hand, or a hard shadow shows
+    // up as a large share of such pixels differing strongly.
+    {
+        std::vector<Vec2> moving;
+        for (const std::vector<int>* group :
+             {&topology::left_eye, &topology::right_eye, &topology::left_brow, &topology::right_brow, &topology::lips})
+            for (int i : *group) {
+                moving.push_back(base_face.points[size_t(i)]);
+                moving.push_back(r.base_from_donor.apply(donor_face.points[size_t(i)]));
+            }
+        const double keep_out = 0.12 * iod;
+        double sigma = std::max(1.0, 0.05 * iod * ws);
+        Image lb = gaussian_blur(luminance(B), sigma), ld = gaussian_blur(luminance(D), sigma);
+        int counted = 0, differing = 0;
+        for (int py = 0; py < B.height; ++py)
+            for (int px = 0; px < B.width; ++px) {
+                double ox = (rect.x0 + px + 0.5) / ws, oy = (rect.y0 + py + 0.5) / ws;
+                Polar p = polar_at(r, ox, oy);
+                if (p.r > p.core) continue;
+                bool near_moving = false;
+                for (const Vec2& m : moving)
+                    if (std::hypot(m.x - ox, m.y - oy) < keep_out) {
+                        near_moving = true;
+                        break;
+                    }
+                if (near_moving) continue;
+                ++counted;
+                if (std::abs(std::log((lb.at(px, py) + kEps) / (ld.at(px, py) + kEps))) > 0.5) ++differing;
+            }
+        rep.core_mismatch = counted > 0 ? double(differing) / counted : 0;
+        if (rep.core_mismatch > opt.max_core_mismatch) {
+            rep.rejection = "something covers the face in one photo";
+            return rep;
+        }
+    }
+
     // Seam: closed minimum-cost path in polar coordinates through the band.
     {
         Image eb = encode(B), ed = encode(D);
