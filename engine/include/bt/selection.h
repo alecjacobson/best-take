@@ -55,7 +55,7 @@ struct SelectionProblem {
     std::vector<std::vector<bool>> present;       ///< [person][frame] an observation exists.
     std::vector<std::vector<bool>> eligible;      ///< [person][frame] usable as donor (identity certain, adequate detail).
     std::vector<std::vector<double>> face_cost;   ///< [person][frame] technical + preference.
-    std::vector<bool> required;                   ///< [person] must appear in the base.
+    std::vector<bool> required;                   ///< [person] must appear in an automatically chosen base.
     /// Compatibility of donor frame `s` for person `p` in base `b` (s != b).
     std::function<MergeEvaluation(int p, int s, int b)> merge;
     /// People whose edits touch; optional cost when both are replaced.
