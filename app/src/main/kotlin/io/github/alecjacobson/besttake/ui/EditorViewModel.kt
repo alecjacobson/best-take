@@ -367,7 +367,7 @@ class EditorViewModel(application: Application, private val projectId: Long) : A
             require(rendered.quality.all { it.ok }) { string(R.string.quality_failed) }
             val bitmap = image.bitmapFromPixels(rendered.pixels, image.width, image.height)
             try {
-                Exporter.saveCopy(getApplication(), bitmap, "BestTake_${projectId}_r$savedRevision.jpg")
+                Exporter.saveCopy(getApplication(), bitmap, "BestTake_${projectId}_r$savedRevision.jpg", image.file)
             } finally {
                 bitmap.recycle()
             }
